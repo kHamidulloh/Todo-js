@@ -11,6 +11,7 @@ const fetchTodo = () => {
         return JSON.parse(data)
     
     } catch (error) {
+        console.error("Error reading file:", error);
         return []
     }
 }
@@ -26,42 +27,66 @@ const server = http.createServer((req,res) => {
     const method = req.method;
 
     if(pathname === '/todos') {
+        const todos = fetchTodo();
         if(method === 'GET') {
-            const todos = fetchTodo();
-            res.writeHead(200,{'Content-Type':'application/json'});
+            res.writeHead(200,{ 'Content-Type': 'application/json' });
             res.end(JSON.stringify(todos));
         } 
         else if(method === 'POST') {
             let body = '';
             req.on('data', chunk => body += chunk.toString());
             req.on('end', () => {
-                const newTodo = {...JSON.parse(body), id: Date.now, completed: false}
-                const todos = fetchTodo();
+                const newTodo = { id: Date.now(), ...JSON.parse(body)}
                 todos.push(newTodo)
                 saveTodo(todos)
-                res.writeHead(201, {'Content-Type':'application/json'})
+                res.writeHead(201, { 'Content-Type': 'application/json' })
                 res.end(JSON.stringify(newTodo))
             })
         }
     } 
-    else if(pathname === '/todos/') {
+    
+    else if(pathname.startsWith('/todos/')) {
         const id = parseInt(pathname.split('/')[2]);
         const todos = fetchTodo();
-        const todo = todos.find(t => t.id === id);
+        const todoIndex = todos.findIndex(t => t.id === id);
         
-        if(method === 'PATCH' && todo) {
-            todo.completed = true;
-            saveTodo(todo)
-            res.writeHead(201, {'Content-Type':'application/json'})
-            res.end(JSON.stringify(todo))
+        
+        if (method === 'GET') {
+            if (todoIndex !== -1) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(todos[todoIndex]));
+            } else {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: 'Todo not found' }));
+            }
+        }
+        else if(method === 'PATCH') {
+            if(todoIndex !== -1){
+                let body = '';
+                req.on('data', chunk => body += chunk.toString())
+                req.on('end', () => {
+                    const updateData = JSON.parse(body);
+                    
+                    todos[todoIndex] = {...todos[todoIndex], ...updateData}
+    
+                    saveTodo(todos)
+                    res.writeHead(201, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify(todos[todoIndex]))
+                })
+            }
         } else if(method === 'DELETE') {
-            const updateTodos = todos.filter(t => t.id != id);
-            saveTodo(updateTodos)
-            res.writeHead(204).end();
+            if(todoIndex !== -1) {
+                const updateTodos = todos.filter(t => t.id !== id);
+                saveTodo(updateTodos)
+                res.writeHead(204).end();
+            }else {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: 'Todo not found' }));
+            }
         }
 
     } else {
-        res.writeHead(404,{'Content-Type': 'application/json'});
+        res.writeHead(404,{ 'Content-Type': 'application/json' });
         res.end(JSON.stringify({message: 'Not found'}))
     }
 })
