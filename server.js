@@ -1,13 +1,19 @@
+const express = require('express');
 const http = require('http');
 const url = require('url');
 const fs = require('fs');
+const path = require('path');
 
+const app = express();
 const PORT = 8000;
-const DATA = 'data.json'
+const DATA_FILE = 'data.json'
+
+app.use(express.json());
+app.use('/api/docs/ui', express.static(path.json(__dirname, 'node_modules', 'swagger-ui-dist')));
 
 const fetchTodo = () => {
     try {
-        const data = fs.readFileSync(DATA, 'utf-8');
+        const data = fs.readFileSync(DATA_FILE, 'utf-8');
         return JSON.parse(data)
     
     } catch (error) {
@@ -17,81 +23,67 @@ const fetchTodo = () => {
 }
 
 
-const saveTodo = (todo) => {
-    fs.writeFileSync(DATA,JSON.stringify(todo, null, 2))
-}
-
-
-const server = http.createServer((req,res) => {
-    const { pathname } = url.parse(req.url, true);
-    const method = req.method;
-
-    if(pathname === '/todos') {
-        const todos = fetchTodo();
-        if(method === 'GET') {
-            res.writeHead(200,{ 'Content-Type': 'application/json' });
-            res.end(JSON.stringify(todos));
-        } 
-        else if(method === 'POST') {
-            let body = '';
-            req.on('data', chunk => body += chunk.toString());
-            req.on('end', () => {
-                const newTodo = { id: Date.now(), ...JSON.parse(body)}
-                todos.push(newTodo)
-                saveTodo(todos)
-                res.writeHead(201, { 'Content-Type': 'application/json' })
-                res.end(JSON.stringify(newTodo))
-            })
+app.get('api/docs', (req,res) => {
+    res.type('application/x-yaml')
+    fs.readFile('swagger.yaml', (err,data) => {
+        if(err) {
+            return res.status(500).send("Error reading swagger yaml")
         }
-    } 
-    
-    else if(pathname.startsWith('/todos/')) {
-        const id = parseInt(pathname.split('/')[2]);
-        const todos = fetchTodo();
-        const todoIndex = todos.findIndex(t => t.id === id);
-        
-        
-        if (method === 'GET') {
-            if (todoIndex !== -1) {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(todos[todoIndex]));
-            } else {
-                res.writeHead(404, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'Todo not found' }));
-            }
-        }
-        else if(method === 'PATCH') {
-            if(todoIndex !== -1){
-                let body = '';
-                req.on('data', chunk => body += chunk.toString())
-                req.on('end', () => {
-                    const updateData = JSON.parse(body);
-                    
-                    todos[todoIndex] = {...todos[todoIndex], ...updateData}
-    
-                    saveTodo(todos)
-                    res.writeHead(201, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify(todos[todoIndex]))
-                })
-            }
-        } else if(method === 'DELETE') {
-            if(todoIndex !== -1) {
-                const updateTodos = todos.filter(t => t.id !== id);
-                saveTodo(updateTodos)
-                res.writeHead(204).end();
-            }else {
-                res.writeHead(404, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'Todo not found' }));
-            }
-        }
+        res.send(data);
+    });
+});
 
-    } else {
-        res.writeHead(404,{ 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({message: 'Not found'}))
+app.get('/todos', (req,res) => {
+    const todos = fetchTodo();
+    res.json(todos);
+})
+
+app.post('/todos', (req,res) => {
+    const newTodo = {id: Date.now(), ...req.body };
+    const todos = fetchTodo();
+    todos.push(newTodo);
+    saveTodo(todos);
+    res.status(201).json(newTodo);
+})
+
+app.get('/toodo/:id', (req,res) => {
+    const id = parseInt(req.params.id);
+    const todos = fetchTodo();
+    const todo = todos.find(t => t.id === id);
+    if(todo){
+        res.json(todo);
+    }else{
+        res.status(404).json({ message: 'Todo not found' })
+    }
+});
+
+app.patch('/todos/:id', (req,res) => {
+    const id = parseInt(req.params.id);
+    const todos = fetchTodo();
+    const todo = todos.find(t => t.id === id);
+    if (todoIndex !== -1) {
+        todos[todoIndex] = {...todos[todoIndex], ...req.body}
+        saveTodo(todos);
+        res.json(todos[todoIndex])
+    }else{
+        res.status(404).json({ message: 'Todo not found' })
+    }
+})
+
+app.delete('/todos/:id', (req,res) => {
+    const id = parseInt(req.params.id);
+    const todos = fetchTodo();
+    const todo = todos.find(t => t.id === id);
+    if (todoIndex !== -1) {
+        todos.splice(todoIndex, 1);
+        saveTodo(todos);
+        res.status(200).end();
+    }else{
+        res.status(404).json({ message: 'Todo not found' });
     }
 })
 
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
-})
+});
