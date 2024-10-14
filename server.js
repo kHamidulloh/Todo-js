@@ -1,15 +1,18 @@
 const express = require('express');
-const http = require('http');
-const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const YAML = require('yamljs')
 
 const app = express();
 const PORT = 8000;
 const DATA_FILE = 'data.json'
 
 app.use(express.json());
-app.use('/api/docs/ui', express.static(path.json(__dirname, 'node_modules', 'swagger-ui-dist')));
+const swaggerDocument = YAML.load('./swagger.yaml');
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 
 const fetchTodo = () => {
     try {
@@ -22,13 +25,20 @@ const fetchTodo = () => {
     }
 }
 
+const saveTodo = (todos) => {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(todos,null,2));
+}
 
-app.get('api/docs', (req,res) => {
+app.get('/api/docs', (req,res) => {
     res.type('application/x-yaml')
     fs.readFile('swagger.yaml', (err,data) => {
         if(err) {
+            console.log("Error reading swagger.yaml:", err);
+            
             return res.status(500).send("Error reading swagger yaml")
         }
+        console.log(data);
+        
         res.send(data);
     });
 });
@@ -46,7 +56,7 @@ app.post('/todos', (req,res) => {
     res.status(201).json(newTodo);
 })
 
-app.get('/toodo/:id', (req,res) => {
+app.get('/todos/:id', (req,res) => {
     const id = parseInt(req.params.id);
     const todos = fetchTodo();
     const todo = todos.find(t => t.id === id);
@@ -60,7 +70,7 @@ app.get('/toodo/:id', (req,res) => {
 app.patch('/todos/:id', (req,res) => {
     const id = parseInt(req.params.id);
     const todos = fetchTodo();
-    const todo = todos.find(t => t.id === id);
+    const todoIndex = todos.findIndex(t => t.id === id);
     if (todoIndex !== -1) {
         todos[todoIndex] = {...todos[todoIndex], ...req.body}
         saveTodo(todos);
@@ -73,11 +83,11 @@ app.patch('/todos/:id', (req,res) => {
 app.delete('/todos/:id', (req,res) => {
     const id = parseInt(req.params.id);
     const todos = fetchTodo();
-    const todo = todos.find(t => t.id === id);
+    const todoIndex = todos.findIndex(t => t.id === id);
     if (todoIndex !== -1) {
         todos.splice(todoIndex, 1);
         saveTodo(todos);
-        res.status(200).end();
+        res.status(204).end();
     }else{
         res.status(404).json({ message: 'Todo not found' });
     }

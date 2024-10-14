@@ -1,91 +1,81 @@
-swagger: "2.0"
-info: 
-  version: "1.0.0"
-  title: "Todo API"
-  description: "A simple CRUD API for managing todos"
-host: "localhost:8000"
-basePath: "/"
-schemes:
-  - "http"
+openapi: '3.0.0'
+info:
+  title: 'Todo API'
+  description: 'API для управления делами'
+  version: '1.0.0'
+servers:
+  - url: 'http://localhost:8000'
 paths:
   /todos:
     get:
-      summery: "Get all todos"
-      responses: 
+      summary: 'Получить все дела'
+      responses:
         200:
-          description: "A list of todos"
-          schema:
-            type: "array"
-            items:
-              $ref: "#/definitions/Todo"
+          description: 'Список дел'
     post:
-      summery: "Create a new todo"
-      parameters:
-        - name: "todo"
-          in: "body"
-          required: true
-          schema:
-          $ref: "#/definitions/Todo"
-    responses:
-      201:
-        description: "Todo created"
-        schema:
-          $ref: "#/definitions/Todo"
+      summary: 'Создать новое дело'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                completed:
+                  type: boolean
+      responses:
+        201:
+          description: 'Дело создано'
   /todos/{id}:
     get:
-      summary: "Get a todo by ID"
+      summary: 'Получить дело по ID'
       parameters:
-        - name: "id"
-          in: "path"
+        - in: path
+          name: id
           required: true
-          type: "integer"
+          schema:
+            type: integer
       responses:
         200:
-          description: "A todo item"
-          schema:
-            $ref: "#/definitions/Todo"
+          description: 'Элемент дела'
         404:
-          description: "Todo not found"
+          description: 'Дело не найдено'
     patch:
-      summary: "Update a todo"
+      summary: 'Обновить дело по ID'
       parameters:
-        - name: "id"
-          in: "path"
-          required: true
-          type: "integer"
-        - name: "todo"
-          in: "body"
+        - in: path
+          name: id
           required: true
           schema:
-            $ref: "#/definitions/Todo"
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                completed:
+                  type: boolean
       responses:
         200:
-          description: "Updated todo"
-          schema:
-            $ref: "#/definitions/Todo"
+          description: 'Дело обновлено'
         404:
-          description: "Todo not found"
+          description: 'Дело не найдено'
     delete:
-      summary: "Delete a todo"
+      summary: 'Удалить дело по ID'
       parameters:
-        - name: "id"
-          in: "path"
+        - in: path
+          name: id
           required: true
-          type: "integer"
+          schema:
+            type: integer
       responses:
         204:
-          description: "Todo deleted"
+          description: 'Дело удалено'
         404:
-          description: "Todo not found"
-definitions:
-  Todo:
-    type: "object"
-    properties:
-      id:
-        type: "integer"
-      title:
-        type: "string"
-      completed:
-        type: "boolean"
-    required:
-      - "title"
+          description: 'Дело не найдено'
